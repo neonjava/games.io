@@ -1,0 +1,71 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; color: #111; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; touch-action: none; user-select: none; -webkit-user-select: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+[hidden] { display: none !important; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud > * { pointer-events: none; }
+
+.panel { background: rgba(255, 255, 255, 0.94); border: 2px solid #111; }
+
+#top {
+  position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 12px; right: 12px;
+  border-radius: 12px; padding: 8px 14px 12px; display: flex; justify-content: space-between; align-items: flex-end;
+  max-width: 520px; margin: 0 auto;
+}
+#top .cell { display: flex; flex-direction: column; gap: 2px; }
+#top .cell.mid { align-items: center; }
+#top small { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #555; }
+#top b { font-size: 30px; font-weight: 900; font-style: italic; line-height: 1; }
+#top .mid b { font-size: 22px; font-style: normal; font-variant-numeric: tabular-nums; }
+#top i { font-size: 15px; font-weight: 700; color: #555; margin-left: 3px; }
+#bar { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 4px; background: #ddd; border-radius: 2px; overflow: hidden; }
+#barFill { display: block; height: 100%; width: 0; background: #111; }
+
+#banner, #count {
+  position: absolute; left: 50%; transform: translateX(-50%); background: #fff; border: 2px solid #111;
+  border-radius: 8px; padding: 6px 16px; font-weight: 900; letter-spacing: 1px; font-size: 15px; white-space: nowrap;
+}
+#banner { top: calc(112px + env(safe-area-inset-top)); }
+#count { top: 36%; font-size: 64px; padding: 6px 34px; border-radius: 18px; }
+
+#bottom {
+  position: absolute; left: 0; right: 0; bottom: calc(26px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+#slip { font-size: 12px; font-weight: 900; letter-spacing: 2px; background: #fff; border: 2px solid #111; border-radius: 999px; padding: 3px 14px; transition: opacity .15s; }
+#slip.off { opacity: 0; }
+#rpm { display: flex; gap: 4px; }
+#rpm i { width: 20px; height: 7px; background: #fff; border: 1.5px solid #111; border-radius: 2px; opacity: .45; }
+#rpm i.on { opacity: 1; background: #111; }
+#rpm i.hot.on { background: #d6402a; border-color: #d6402a; }
+#dash { display: flex; align-items: center; gap: 16px; background: #fff; border: 2px solid #111; border-radius: 14px; padding: 8px 20px; }
+#gear { width: 46px; height: 46px; border: 2px solid #111; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#gear small { font-size: 8px; font-weight: 800; letter-spacing: 1px; }
+#gear b { font-size: 22px; line-height: 1; }
+#speed { display: flex; align-items: baseline; gap: 6px; }
+#speed b { font-size: 48px; font-weight: 900; font-style: italic; min-width: 84px; text-align: right; font-variant-numeric: tabular-nums; line-height: 1; }
+#speed small { font-size: 12px; font-weight: 800; }
+
+#brake {
+  position: absolute; left: 14px; bottom: calc(40px + env(safe-area-inset-bottom)); width: 72px; height: 72px; border-radius: 50%;
+  border: 2px solid #111; background: #fff; color: #111; font-weight: 900; font-size: 12px; pointer-events: auto; touch-action: none;
+}
+#brake.on { background: #111; color: #fff; }
+#hint { position: absolute; left: 0; right: 0; top: 44%; text-align: center; font-weight: 800; font-size: 15px; transition: opacity .6s; text-shadow: 0 0 4px #fff, 0 0 4px #fff; }
+#hint.gone { opacity: 0; }
+
+.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(255,255,255,.9); touch-action: auto; }
+.card { width: min(380px, 100%); background: #fff; border: 2px solid #111; border-radius: 16px; padding: 24px 20px; display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.card h1 { margin: 0; font-size: 28px; }
+.card h2 { margin: 0; font-size: 72px; font-style: italic; line-height: 1; }
+.card p { margin: 0; font-weight: 700; }
+.card .sub { font-weight: 600; }
+.card .tips { font-size: 13px; color: #555; line-height: 1.5; }
+.card small { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #555; }
+.card .two { display: flex; justify-content: space-around; }
+.card .two div { display: flex; flex-direction: column; gap: 2px; }
+.card .two b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.card button { font: inherit; font-weight: 800; font-size: 16px; padding: 12px; border-radius: 10px; border: 2px solid #111; background: #fff; color: #111; }
+.card button.primary { background: #111; color: #fff; }
+.card a.back { color: #111; font-weight: 700; font-size: 14px; }
