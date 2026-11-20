@@ -1,4 +1,4 @@
-# Worm Hunt
+# Claude Worm Hunt
 
 A browser worm-hunting game. Eat gems, grow, and cut off other worms before the two-minute round ends.
 
@@ -15,4 +15,4 @@ A browser worm-hunting game. Eat gems, grow, and cut off other worms before the 
 - Move the mouse or drag on the screen to steer
 - Hold Space or the Boost button to speed up (costs score)
 
-Made by neonjava.
+Made by neonjava, built with Claude.
