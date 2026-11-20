@@ -187,3 +187,5 @@ html, body {
 #resultList .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #resultList .ko { color: #555; font-weight: 600; }
 #nextRound { margin: 0; font-weight: 700; }
+
+.card a.back { color: #111; font-weight: 700; font-size: 14px; }

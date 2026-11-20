@@ -1,18 +1,11 @@
-# Claude Worm Hunt
+# io games
 
-A browser worm-hunting game. Eat gems, grow, and cut off other worms before the two-minute round ends.
+A collection of browser io games. Pick one from the menu and play.
 
-## Features
+## Games
 
-- Runs entirely in the browser, no backend
-- Rooms with a shareable room code
-- AI worms fill every room; when a real player joins, they take over an AI worm and pick a name
-- Timed rounds with a live leaderboard, KO count and levels
-- Touch and mouse controls, with boost
+1. **Claude Worm Hunt** - eat gems, grow, and cut off other worms. Solo, or in rooms with a shareable code where AI worms fill the empty spots.
 
-## Controls
-
-- Move the mouse or drag on the screen to steer
-- Hold Space or the Boost button to speed up (costs score)
+More games coming.
 
 Made by neonjava, built with Claude.
