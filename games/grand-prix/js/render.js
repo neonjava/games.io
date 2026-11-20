@@ -1,20 +1,15 @@
 import { SEG } from './track.js';
-import { PLAYER_Z } from './sim.js';
+import { PLAYER_Z, CAR_COLORS_PAINT } from './sim.js';
+import { buildSprites, CAR_W, CAR_H, CAR_BODY_W, CAR_GROUND } from './sprites.js';
 
 const ROAD_W = 2000;
-const CAM_H = 1000;
 const CAM_DEPTH = 0.84;
-const DRAW = 230;
+const DRAW = 240;
 const lerp = (a, b, t) => a + (b - a) * t;
+const HAZE = '#cfe1ee';
 
-const COL = {
-  skyTop: '#b9b8b2', skyBottom: '#e7e1cd',
-  grassA: '#c4cf95', grassB: '#bbc78c',
-  rumbleA: '#d9503a', rumbleB: '#f1efe8',
-  runoff: '#5fbfa3',
-  roadA: '#343a3d', roadB: '#30363a',
-  line: '#f1efe8',
-};
+const GRASS = ['#5f8f3b', '#598937', '#659542'];
+const WALL_H = 260;
 
 function makeProj() {
   return { wx: 0, wy: 0, wz: 0, cx: 0, cy: 0, cz: 0, sx: 0, sy: 0, sw: 0, sc: 0 };
@@ -26,7 +21,12 @@ export class Renderer {
     this.ctx = canvas.getContext('2d');
     this.track = track;
     this.sky = 0;
-    for (const s of track.segs) { s.p1 = makeProj(); s.p2 = makeProj(); s.clip = 0; s.looped = false; }
+    this.cloudX = 0;
+    this.braking = false;
+    this.lean = 0;
+    for (const s of track.segs) { s.p1 = makeProj(); s.p2 = makeProj(); s.looped = false; s.fog = 0; }
+    this.sprites = buildSprites(CAR_COLORS_PAINT);
+    this.vis = [];
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -58,6 +58,14 @@ export class Renderer {
     c.fill();
   }
 
+  // a flat strip on the ground between two lateral offsets (in road half-widths)
+  strip(p1, p2, y1, y2, a, b, color) {
+    this.poly(
+      p1.sx + p1.sw * a, y1, p1.sx + p1.sw * b, y1,
+      p2.sx + p2.sw * b, y2, p2.sx + p2.sw * a, y2, color,
+    );
+  }
+
   draw(race, dt) {
     const { ctx, W, H, track } = this;
     const segs = track.segs;
@@ -65,9 +73,11 @@ export class Renderer {
     const trackLen = track.length;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
+    const base = Math.min(W, H * 0.62);
     this.horizon = H * 0.28;
-    this.kx = W * 0.38;
-    this.ky = H * 0.5;
+    this.kx = base * 0.38;
+    this.ky = this.kx * 1.1;
+    const camH = ((0.76 * H - this.horizon) * PLAYER_Z) / (CAM_DEPTH * this.ky);
 
     const player = race.player;
     const mod = (v) => ((v % trackLen) + trackLen) % trackLen;
@@ -79,60 +89,46 @@ export class Renderer {
     const playerPercent = (pz % SEG) / SEG;
     const playerY = lerp(playerSeg.y0, playerSeg.y1, playerPercent);
     const camX = player.x * ROAD_W;
-    const camY = playerY + CAM_H;
+    const camY = playerY + camH;
 
-    this.sky += baseSeg.curve * (player.speed / 12000) * (dt || 0.016) * 0.012;
+    const d = dt || 0.016;
+    this.sky += baseSeg.curve * (player.speed / 12000) * d * 0.02;
+    this.cloudX += d * 4;
 
     this.drawSky();
 
-    // ground base
-    ctx.fillStyle = COL.grassA;
+    // ground and haze band behind everything
+    const gg = ctx.createLinearGradient(0, this.horizon, 0, this.horizon + H * 0.2);
+    gg.addColorStop(0, HAZE);
+    gg.addColorStop(1, GRASS[0]);
+    ctx.fillStyle = gg;
     ctx.fillRect(0, this.horizon, W, H - this.horizon);
+    ctx.fillStyle = GRASS[0];
+    ctx.fillRect(0, this.horizon + H * 0.2, W, H);
 
+    // pass 1: project and decide what is visible (near to far)
+    const vis = this.vis;
+    vis.length = 0;
     let maxy = H;
     let x = 0;
     let dx = -(baseSeg.curve * basePercent);
-
     for (let n = 0; n < DRAW; n++) {
       const seg = segs[(baseSeg.index + n) % N];
       seg.looped = seg.index < baseSeg.index;
       const p1 = seg.p1, p2 = seg.p2;
       p1.wx = 0; p1.wy = seg.y0; p1.wz = seg.index * SEG;
       p2.wx = 0; p2.wy = seg.y1; p2.wz = (seg.index + 1) * SEG;
-      this.project(p1, camX - x, camY, pos - (seg.looped ? trackLen : 0));
-      this.project(p2, camX - x - dx, camY, pos - (seg.looped ? trackLen : 0));
+      const cz = pos - (seg.looped ? trackLen : 0);
+      this.project(p1, camX - x, camY, cz);
+      this.project(p2, camX - x - dx, camY, cz);
       x += dx;
       dx += seg.curve;
-      seg.clip = maxy;
       if (p1.cz <= CAM_DEPTH || p2.sy >= p1.sy || p2.sy >= maxy) continue;
-
-      const band = Math.floor(seg.index / 3) % 2;
-      const y1 = Math.round(p1.sy), y2 = Math.round(p2.sy);
-      if (y1 <= y2) { maxy = p1.sy; continue; }
-      ctx.fillStyle = band ? COL.grassA : COL.grassB;
-      ctx.fillRect(0, y2, W, y1 - y2);
-
-      const r1 = p1.sw * 0.12, r2 = p2.sw * 0.12;
-      const g1 = p1.sw * 0.3, g2 = p2.sw * 0.3;
-      // run-off strip
-      this.poly(p1.sx - p1.sw - r1 - g1, y1, p1.sx - p1.sw - r1, y1, p2.sx - p2.sw - r2, y2, p2.sx - p2.sw - r2 - g2, y2, COL.runoff);
-      this.poly(p1.sx + p1.sw + r1 + g1, y1, p1.sx + p1.sw + r1, y1, p2.sx + p2.sw + r2, y2, p2.sx + p2.sw + r2 + g2, y2, COL.runoff);
-      // rumble strips
-      const rc = seg.index % 6 < 3 ? COL.rumbleA : COL.rumbleB;
-      this.poly(p1.sx - p1.sw - r1, y1, p1.sx - p1.sw, y1, p2.sx - p2.sw, y2, p2.sx - p2.sw - r2, y2, rc);
-      this.poly(p1.sx + p1.sw + r1, y1, p1.sx + p1.sw, y1, p2.sx + p2.sw, y2, p2.sx + p2.sw + r2, y2, rc);
-      // road
-      const start = seg.index < 2;
-      this.poly(p1.sx - p1.sw, y1, p1.sx + p1.sw, y1, p2.sx + p2.sw, y2, p2.sx - p2.sw, y2, start ? COL.line : (band ? COL.roadA : COL.roadB));
-      maxy = y1;
+      seg.fog = Math.min(0.94, Math.pow(n / DRAW, 1.6) * 1.1);
+      seg.n = n;
+      vis.push(seg);
+      maxy = p1.sy;
     }
-
-    // haze at the horizon
-    const hz = ctx.createLinearGradient(0, this.horizon, 0, this.horizon + H * 0.14);
-    hz.addColorStop(0, 'rgba(231,225,205,0.9)');
-    hz.addColorStop(1, 'rgba(231,225,205,0)');
-    ctx.fillStyle = hz;
-    ctx.fillRect(0, this.horizon, W, H * 0.14);
 
     // cars into their segments
     for (const s of segs) if (s.cars.length) s.cars.length = 0;
@@ -141,128 +137,170 @@ export class Renderer {
       segs[Math.floor(mod(c.p) / SEG) % N].cars.push(c);
     }
 
-    // sprites, far to near
-    for (let n = DRAW - 1; n > 0; n--) {
-      const seg = segs[(baseSeg.index + n) % N];
-      const p1 = seg.p1, p2 = seg.p2;
-      if (p1.cz <= CAM_DEPTH) continue;
+    // pass 2: paint far to near so hills, walls and scenery overlap correctly
+    for (let i = vis.length - 1; i >= 0; i--) {
+      const seg = vis[i];
+      this.drawSegment(seg);
       for (const t of seg.trees) this.drawScenery(seg, t);
-      for (const c of seg.cars) {
-        const pct = (mod(c.p) % SEG) / SEG;
-        const sc = lerp(p1.sc, p2.sc, pct);
-        const sx = lerp(p1.sx, p2.sx, pct) + sc * c.x * ROAD_W * this.kx;
-        const sy = lerp(p1.sy, p2.sy, pct);
-        const w = sc * ROAD_W * 0.32 * this.kx;
-        this.clipped(seg, sy, () => this.drawCar(sx, sy, w, c.color, 0));
-      }
+      for (const c of seg.cars) this.drawOther(seg, c, mod);
     }
 
-    // player car
+    // player car on top
     const psc = lerp(playerSeg.p1.sc, playerSeg.p2.sc, playerPercent);
     const psy = lerp(playerSeg.p1.sy, playerSeg.p2.sy, playerPercent);
-    const pw = psc * ROAD_W * 0.32 * this.kx;
-    const bounce = Math.abs(player.x) > 1.12 ? (Math.random() - 0.5) * 3 : 0;
-    this.drawCar(W / 2, psy + bounce, pw, player.color, this.lean || 0);
+    const bodyW = psc * ROAD_W * 0.32 * this.kx;
+    const bounce = Math.abs(player.x) > 1.12 ? (Math.random() - 0.5) * 2.4 : 0;
+    const spr = this.braking ? this.sprites.cars[0].brake : this.sprites.cars[0].normal;
+    ctx.save();
+    ctx.translate(W / 2, psy + bounce);
+    ctx.rotate(this.lean * 0.05);
+    this.blit(spr, 0, 0, bodyW);
+    ctx.restore();
   }
 
-  clipped(seg, y, fn) {
-    const { ctx, W } = this;
-    if (y > seg.clip) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, W, seg.clip);
-      ctx.clip();
-      fn();
-      ctx.restore();
-    } else fn();
+  // draws a car sprite with the ground contact point at (x, y)
+  blit(spr, x, y, bodyW, alpha) {
+    const w = bodyW * (CAR_W / CAR_BODY_W);
+    const h = w * (CAR_H / CAR_W);
+    if (w < 1.5) return;
+    const ctx = this.ctx;
+    if (alpha != null) ctx.globalAlpha = alpha;
+    ctx.drawImage(spr, x - w / 2, y - h * (CAR_GROUND / CAR_H), w, h);
+    if (alpha != null) ctx.globalAlpha = 1;
   }
 
-  drawSky() {
-    const { ctx, W } = this;
-    const g = ctx.createLinearGradient(0, 0, 0, this.horizon);
-    g.addColorStop(0, COL.skyTop);
-    g.addColorStop(1, COL.skyBottom);
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, this.horizon + 1);
-    // low-poly pyramids that slide with the bends
-    const hz = this.horizon;
-    const span = W * 2.6;
-    const peaks = [[0.05, 150, 110], [0.32, 90, 70], [0.55, 200, 150], [0.8, 110, 80], [1.0, 170, 120], [1.25, 80, 60], [1.5, 140, 100]];
-    for (const [f, w, h] of peaks) {
-      let px = ((f * span - this.sky * span) % span + span) % span - W * 0.3;
-      ctx.fillStyle = '#8a73c4';
-      ctx.beginPath(); ctx.moveTo(px - w / 2, hz); ctx.lineTo(px, hz - h); ctx.lineTo(px, hz); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#6a539f';
-      ctx.beginPath(); ctx.moveTo(px, hz - h); ctx.lineTo(px + w / 2, hz); ctx.lineTo(px, hz); ctx.closePath(); ctx.fill();
+  drawOther(seg, car, mod) {
+    const p1 = seg.p1, p2 = seg.p2;
+    const pct = (mod(car.p) % SEG) / SEG;
+    const sc = lerp(p1.sc, p2.sc, pct);
+    const sx = lerp(p1.sx, p2.sx, pct) + sc * car.x * ROAD_W * this.kx;
+    const sy = lerp(p1.sy, p2.sy, pct);
+    const w = sc * ROAD_W * 0.32 * this.kx;
+    if (sx < -w || sx > this.W + w) return;
+    this.blit(this.sprites.cars[car.id].normal, sx, sy, w, 1 - seg.fog * 0.8);
+  }
+
+  drawSegment(seg) {
+    const { ctx, W, H } = this;
+    const p1 = seg.p1, p2 = seg.p2;
+    const px = 1 / this.dpr;
+    const y1 = Math.round(p1.sy * this.dpr) * px + px, y2 = Math.round(p2.sy * this.dpr) * px;
+    if (y1 <= y2 + px) return;
+    const i = seg.index;
+
+    // grass
+    ctx.fillStyle = GRASS[Math.floor(i / 4) % 3];
+    ctx.fillRect(0, y2, W, y1 - y2);
+
+    // tarmac run-off, kerbs, edge lines
+    const runoff = Math.floor(i / 5) % 2 ? '#7b8084' : '#757a7e';
+    this.strip(p1, p2, y1, y2, -1.78, -1.12, runoff);
+    this.strip(p1, p2, y1, y2, 1.12, 1.78, runoff);
+    const kerb = i % 6 < 3 ? '#d8402e' : '#f3f1ea';
+    this.strip(p1, p2, y1, y2, -1.12, -1.0, kerb);
+    this.strip(p1, p2, y1, y2, 1.0, 1.12, kerb);
+
+    // asphalt
+    const asphalt = Math.floor(i / 2) % 2 ? '#3a3d40' : '#373a3d';
+    this.strip(p1, p2, y1, y2, -1, 1, asphalt);
+    // rubbered-in racing line and edge lines
+    this.strip(p1, p2, y1, y2, -0.62, -0.18, 'rgba(0,0,0,0.13)');
+    this.strip(p1, p2, y1, y2, 0.18, 0.62, 'rgba(0,0,0,0.13)');
+    this.strip(p1, p2, y1, y2, -0.97, -0.93, 'rgba(240,240,235,0.85)');
+    this.strip(p1, p2, y1, y2, 0.93, 0.97, 'rgba(240,240,235,0.85)');
+    // grid and finish line chequer
+    if (i < 2) {
+      for (let k = 0; k < 14; k++) {
+        const a = -0.9 + k * (1.8 / 14), b = a + 1.8 / 14;
+        this.strip(p1, p2, y1, y2, a, b, (k + i) % 2 ? '#f3f1ea' : '#111');
+      }
+    } else if (i > 150 - 1 && i < 152) {
+      // nothing, reserved for pit markings
+    }
+
+    // barrier on both sides
+    const hw1 = p1.sc * WALL_H * this.ky, hw2 = p2.sc * WALL_H * this.ky;
+    for (const side of [-1, 1]) {
+      const xb1 = p1.sx + p1.sw * 1.8 * side, xb2 = p2.sx + p2.sw * 1.8 * side;
+      const post = i % 4 === 0;
+      // body
+      this.poly(xb1, y1, xb1, y1 - hw1, xb2, y2 - hw2, xb2, y2, post ? '#9aa0a5' : '#b9bfc4');
+      // upper rail highlight
+      this.poly(xb1, y1 - hw1 * 0.72, xb1, y1 - hw1 * 0.98, xb2, y2 - hw2 * 0.98, xb2, y2 - hw2 * 0.72, '#e9ecee');
+      // lower rail shadow
+      this.poly(xb1, y1 - hw1 * 0.1, xb1, y1 - hw1 * 0.34, xb2, y2 - hw2 * 0.34, xb2, y2 - hw2 * 0.1, '#7f858a');
+      // dark gap under the barrier
+      this.poly(xb1, y1, xb1, y1 - hw1 * 0.1, xb2, y2 - hw2 * 0.1, xb2, y2, '#4b4f53');
+    }
+
+    // distance haze
+    if (seg.fog > 0.01) {
+      ctx.globalAlpha = seg.fog;
+      ctx.fillStyle = HAZE;
+      ctx.fillRect(0, y2, W, y1 - y2 + 1);
+      ctx.globalAlpha = 1;
     }
   }
 
   drawScenery(seg, t) {
     const p1 = seg.p1;
     const sc = p1.sc;
+    const spr = this.sprites.trees[t.kind][t.v];
+    const w = sc * spr.w * t.s * this.kx;
+    if (w < 2) return;
+    const h = w * spr.aspect;
     const sx = p1.sx + sc * t.off * ROAD_W * this.kx;
     const sy = p1.sy;
-    if (sx < -200 || sx > this.W + 200) return;
+    if (sx + w / 2 < 0 || sx - w / 2 > this.W) return;
     const ctx = this.ctx;
-    if (t.kind === 'post') {
-      const h = sc * 520 * this.ky, w = Math.max(1, sc * 70 * this.kx);
-      this.clipped(seg, sy, () => {
-        ctx.fillStyle = '#8f9690'; ctx.fillRect(sx - w / 2, sy - h, w, h);
-        ctx.fillStyle = '#e9e6dc'; ctx.fillRect(sx - w, sy - h, w * 2, h * 0.14);
-      });
-      return;
+    ctx.globalAlpha = 1 - seg.fog * 0.85;
+    if (t.flip) {
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.scale(-1, 1);
+      ctx.drawImage(spr.cv, -w / 2, -h + 1, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(spr.cv, sx - w / 2, sy - h + 1, w, h);
     }
-    const s = t.s;
-    const h = sc * 1500 * s * this.ky;
-    const w = sc * 900 * s * this.kx;
-    this.clipped(seg, sy, () => {
-      ctx.fillStyle = '#6b4f35';
-      ctx.fillRect(sx - w * 0.07, sy - h * 0.32, w * 0.14, h * 0.32);
-      ctx.fillStyle = '#3f8f5a';
-      ctx.beginPath(); ctx.moveTo(sx, sy - h); ctx.lineTo(sx - w * 0.5, sy - h * 0.28); ctx.lineTo(sx + w * 0.5, sy - h * 0.28); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#2f7449';
-      ctx.beginPath(); ctx.moveTo(sx, sy - h); ctx.lineTo(sx + w * 0.5, sy - h * 0.28); ctx.lineTo(sx, sy - h * 0.28); ctx.closePath(); ctx.fill();
-    });
+    ctx.globalAlpha = 1;
   }
 
-  // Low-poly open-wheel car seen from behind. w = overall width in pixels.
-  drawCar(cx, by, w, color, lean) {
-    if (w < 2) return;
-    const c = this.ctx;
-    const h = w * 0.62;
-    c.save();
-    c.translate(cx, by);
-    if (lean) c.rotate(lean * 0.06);
-    // shadow
-    c.fillStyle = 'rgba(0,0,0,0.25)';
-    c.beginPath(); c.ellipse(0, 0, w * 0.5, h * 0.12, 0, 0, 6.2832); c.fill();
-    // rear tyres
-    c.fillStyle = '#1b1e20';
-    c.fillRect(-w * 0.5, -h * 0.52, w * 0.19, h * 0.52);
-    c.fillRect(w * 0.31, -h * 0.52, w * 0.19, h * 0.52);
-    // sidepods
-    c.fillStyle = color;
-    c.fillRect(-w * 0.31, -h * 0.58, w * 0.62, h * 0.4);
-    // darker lower edge
-    c.fillStyle = 'rgba(0,0,0,0.28)';
-    c.fillRect(-w * 0.31, -h * 0.26, w * 0.62, h * 0.08);
-    // engine cover
-    c.fillStyle = color;
-    c.beginPath(); c.moveTo(-w * 0.12, -h * 0.9); c.lineTo(w * 0.12, -h * 0.9); c.lineTo(w * 0.2, -h * 0.5); c.lineTo(-w * 0.2, -h * 0.5); c.closePath(); c.fill();
-    c.fillStyle = 'rgba(255,255,255,0.18)';
-    c.beginPath(); c.moveTo(-w * 0.12, -h * 0.9); c.lineTo(-w * 0.02, -h * 0.9); c.lineTo(-w * 0.04, -h * 0.5); c.lineTo(-w * 0.2, -h * 0.5); c.closePath(); c.fill();
-    // helmet
-    c.fillStyle = '#f0d24c';
-    c.beginPath(); c.arc(0, -h * 0.95, w * 0.075, 0, 6.2832); c.fill();
-    // rear wing
-    c.fillStyle = color;
-    c.fillRect(-w * 0.42, -h * 0.34, w * 0.84, h * 0.16);
-    c.fillStyle = 'rgba(0,0,0,0.35)';
-    c.fillRect(-w * 0.42, -h * 0.34, w * 0.05, h * 0.3);
-    c.fillRect(w * 0.37, -h * 0.34, w * 0.05, h * 0.3);
-    // diffuser
-    c.fillStyle = '#1b1e20';
-    c.fillRect(-w * 0.16, -h * 0.18, w * 0.32, h * 0.18);
-    c.restore();
+  drawSky() {
+    const { ctx, W, H } = this;
+    const hz = this.horizon;
+    const g = ctx.createLinearGradient(0, 0, 0, hz);
+    g.addColorStop(0, '#4d8ccf');
+    g.addColorStop(0.65, '#9cc4e6');
+    g.addColorStop(1, HAZE);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, hz + 1);
+    // sun glow
+    const sg = ctx.createRadialGradient(W * 0.72, hz * 0.7, 4, W * 0.72, hz * 0.7, hz * 0.9);
+    sg.addColorStop(0, 'rgba(255,248,225,0.95)');
+    sg.addColorStop(0.18, 'rgba(255,244,215,0.5)');
+    sg.addColorStop(1, 'rgba(255,244,215,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, W, hz + 1);
+    // clouds
+    const clouds = this.sprites.clouds;
+    const span = W * 1.6;
+    for (let i = 0; i < 4; i++) {
+      const cv = clouds[i % clouds.length];
+      const cw = W * (0.34 + (i % 2) * 0.14);
+      const x = ((i * 0.43 * span - this.cloudX - this.sky * W * 1.5) % span + span) % span - cw * 0.4;
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(cv, x, hz * (0.12 + (i % 3) * 0.17), cw, cw * (cv.height / cv.width));
+    }
+    ctx.globalAlpha = 1;
+    // ridges with parallax
+    const scale = H / 780;
+    const layers = [[this.sprites.ridgeFar, 1.6, 0.55], [this.sprites.ridgeNear, 3.2, 0.5], [this.sprites.hills, 6, 0.55]];
+    for (const [cv, par, sz] of layers) {
+      const tw = cv.width * scale * 1.1;
+      const th = cv.height * scale * 1.1 * sz * 1.4;
+      let off = ((this.sky * par * W) % tw + tw) % tw;
+      for (let x = -off; x < W; x += tw) ctx.drawImage(cv, x, hz - th + 2, tw + 1, th);
+    }
   }
 }

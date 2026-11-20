@@ -4,7 +4,8 @@ import { SEG } from './track.js';
 export const MAX_SPEED = 12000; // world units per second, shown as 320 km/h
 export const LAPS = 3;
 export const PLAYER_Z = 840;
-export const CAR_COLORS = ['#d6402a', '#2bb8a4', '#e8e8e8', '#e9c52a', '#2d5cc0', '#2f9e5a', '#8a63c7', '#3a3f44'];
+export const CAR_COLORS = ['#d4181f', '#f2c200', '#1f4fbf', '#e9ebee', '#f26a1b', '#1d7a46', '#a9afb5', '#3b4148'];
+export const CAR_COLORS_PAINT = CAR_COLORS;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -110,11 +111,15 @@ export class Race {
     c.x += steer * authority * dt * (sp > 0.02 ? 1 : 0.3);
     c.x -= 2 * sp * sp * seg.curve * 0.2 * dt;
     if (done) c.x += (0 - c.x) * Math.min(1, dt * 1.5);
-    c.x = clamp(c.x, -2.2, 2.2);
+    if (Math.abs(c.x) > 1.58) {
+      // scraping the barrier
+      c.x = clamp(c.x, -1.62, 1.62);
+      c.speed *= 1 - Math.min(1, dt * 1.6);
+    }
 
-    const off = Math.abs(c.x) > 1.12;
+    const off = Math.abs(c.x) > 1.12; // kerbs and run-off
     let limit = MAX_SPEED * (1 + this.slip * 0.06);
-    if (off) limit = MAX_SPEED * 0.4;
+    if (off) limit = MAX_SPEED * 0.55;
     if (done) limit = MAX_SPEED * 0.35;
     if (input.brake && !done) {
       c.speed -= MAX_SPEED / 2.2 * dt;

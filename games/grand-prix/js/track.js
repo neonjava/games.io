@@ -25,15 +25,15 @@ export function buildTrack() {
 
   section(0, 40, 0, 0, 0);
   section(30, 40, 30, 4, 0);
-  section(20, 20, 20, 0, 1200);
+  section(20, 20, 20, 0, 1800);
   section(25, 30, 25, -3, 0);
-  section(20, 20, 20, 0, -1200);
+  section(20, 20, 20, 0, -1800);
   section(25, 40, 25, 6, 0);
   section(0, 50, 0, 0, 0);
   section(20, 20, 20, -4, 0);
   section(20, 20, 20, 4, 0);
-  section(15, 15, 15, 0, 700);
-  section(15, 15, 15, 0, -700);
+  section(15, 15, 15, 0, 1000);
+  section(15, 15, 15, 0, -1000);
   section(40, 70, 40, 3, 0);
   section(25, 30, 25, -5, 0);
   section(30, 50, 30, 2.5, 0);
@@ -53,14 +53,29 @@ export function buildTrack() {
     seed = (seed * 16807) % 2147483647;
     return (seed - 1) / 2147483646;
   };
-  for (let i = 4; i < n; i += 6) {
-    const side = rnd() < 0.5 ? -1 : 1;
-    segs[i].trees.push({ off: side * (2.3 + rnd() * 3.2), kind: 'tree', s: 0.8 + rnd() * 0.6 });
-    if (rnd() < 0.5) segs[i + 2 < n ? i + 2 : i].trees.push({ off: -side * (2.6 + rnd() * 3.5), kind: 'tree', s: 0.8 + rnd() * 0.6 });
+  const kinds = ['pine', 'pine', 'oak', 'oak', 'cypress', 'palm', 'palm'];
+  const count = { pine: 3, oak: 3, cypress: 2, palm: 2, bush: 3 };
+  const put = (i, o) => segs[i % n].trees.push(o);
+  for (let i = 4; i < n; i += 4) {
+    for (const side of [-1, 1]) {
+      if (rnd() < 0.18) continue;
+      const kind = kinds[Math.floor(rnd() * kinds.length)];
+      put(i, { off: side * (2.5 + rnd() * 3.6), kind, v: Math.floor(rnd() * count[kind]), s: 0.8 + rnd() * 0.5, flip: rnd() < 0.5 });
+    }
+    // low bushes right behind the barrier
+    if (rnd() < 0.55) {
+      const side = rnd() < 0.5 ? -1 : 1;
+      put(i + 1, { off: side * (2.0 + rnd() * 0.5), kind: 'bush', v: Math.floor(rnd() * 3), s: 0.7 + rnd() * 0.5, flip: rnd() < 0.5 });
+    }
   }
-  for (let i = 0; i < n; i += 5) {
-    segs[i].trees.push({ off: -1.75, kind: 'post' });
-    segs[i].trees.push({ off: 1.75, kind: 'post' });
+  // sponsor boards behind the barrier
+  for (let i = 12; i < n; i += 37) {
+    const side = Math.floor(i / 37) % 2 ? -1 : 1;
+    put(i, { off: side * 2.05, kind: 'board', v: Math.floor(i / 37) % 3, s: 1, flip: false });
+  }
+  // grandstands along the finishing straight and one mid-lap
+  for (const i of [n - 120, n - 60, 12, 500]) {
+    put(i, { off: i % 2 ? -3.6 : 3.6, kind: 'stand', v: 0, s: 1, flip: false });
   }
 
   const length = n * SEG;

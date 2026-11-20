@@ -131,6 +131,7 @@ function frame(t) {
   if (race.state !== 'ready') {
     const s = keySteer || steer;
     renderer.lean = s;
+    renderer.braking = brakeTouch || brakeKey;
     race.step(dt, { steer: s, brake: brakeTouch || brakeKey });
     handleEvents();
   }
