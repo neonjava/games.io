@@ -117,11 +117,36 @@ function leave(msg) {
 $('quit').addEventListener('click', () => leave(''));
 
 // ---------- input ----------
+// Touch: wherever the finger lands becomes the centre; drag from there to steer.
+// Mouse: steer towards the pointer relative to the middle of the screen.
+let origin = null;
+const stick = $('stick');
 function setAim(e) {
-  aim = Math.atan2(e.clientY - window.innerHeight / 2, e.clientX - window.innerWidth / 2);
+  if (e.pointerType === 'mouse' || !origin) {
+    aim = Math.atan2(e.clientY - window.innerHeight / 2, e.clientX - window.innerWidth / 2);
+    return;
+  }
+  const dx = e.clientX - origin.x, dy = e.clientY - origin.y;
+  if (dx * dx + dy * dy > 64) aim = Math.atan2(dy, dx);
+  const len = Math.min(40, Math.hypot(dx, dy));
+  const a = Math.atan2(dy, dx);
+  stick.firstElementChild.style.transform = 'translate(' + Math.cos(a) * len + 'px,' + Math.sin(a) * len + 'px)';
 }
-canvas.addEventListener('pointerdown', (e) => { setAim(e); try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } });
+canvas.addEventListener('pointerdown', (e) => {
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  if (e.pointerType !== 'mouse') {
+    origin = { x: e.clientX, y: e.clientY };
+    stick.style.left = origin.x + 'px';
+    stick.style.top = origin.y + 'px';
+    stick.firstElementChild.style.transform = 'translate(0,0)';
+    stick.hidden = false;
+  }
+  setAim(e);
+});
 canvas.addEventListener('pointermove', setAim);
+const endTouch = () => { origin = null; stick.hidden = true; };
+canvas.addEventListener('pointerup', endTouch);
+canvas.addEventListener('pointercancel', endTouch);
 
 const boostBtn = $('boost');
 const setBoost = (on) => { boosting = on; boostBtn.classList.toggle('on', on); };
