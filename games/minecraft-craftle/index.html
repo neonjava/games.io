@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Claude Craftle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <main>
+    <h1 id="title"><span>CLAUDE</span> CRAFTLE</h1>
+    <nav id="menu">
+      <button class="mc" id="bDaily">Daily</button>
+      <button class="mc" id="bRandom">Random</button>
+      <button class="mc" id="bHelp">How To Play</button>
+      <button class="mc" id="bStats">Stats</button>
+      <button class="mc" id="bHC">High Contrast: Off</button>
+    </nav>
+
+    <section class="panel" id="board">
+      <div id="modeLine"><span id="modeName">Random</span><span id="count">Guess 1/10</span></div>
+      <div id="history"></div>
+      <div id="craft">
+        <div id="grid"></div>
+        <div id="arrow"></div>
+        <div id="out" class="slot big"></div>
+      </div>
+      <div id="hint"></div>
+      <div id="row">
+        <button class="mc" id="bClear">Clear</button>
+        <button class="mc go" id="bGuess">Guess</button>
+      </div>
+    </section>
+
+    <section class="panel" id="ingr">
+      <h2>Crafting Ingredients</h2>
+      <div id="pal"></div>
+      <div id="sel">Select an ingredient, then tap a slot</div>
+    </section>
+    <p class="foot">Made by neonjava, built with Claude. Not affiliated with Mojang or Microsoft.</p>
+  </main>
+
+  <div id="toast" hidden></div>
+  <div id="modal" hidden><div class="panel box"><div id="mBody"></div><button class="mc" id="mClose">Close</button></div></div>
+  <div id="ghost" hidden></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
