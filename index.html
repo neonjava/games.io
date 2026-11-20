@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Worm Hunt</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" hidden>
+    <button id="quit" aria-label="Leave game">&#x2715;</button>
+    <div class="stats">
+      <div id="timer" class="pill">2:00</div>
+      <div id="score" class="pill">3</div>
+      <div id="ko" class="pill">KO 0</div>
+      <div id="roomchip" class="pill small" hidden></div>
+    </div>
+    <div id="board" class="panel"></div>
+    <div id="hint"><b>Drag to steer</b><span>Eat the gems, cut off other worms</span></div>
+    <div id="toast" hidden></div>
+    <button id="boost">BOOST</button>
+  </div>
+
+  <div id="results" class="overlay" hidden>
+    <div class="card">
+      <h2>Round over</h2>
+      <ol id="resultList"></ol>
+      <p id="nextRound"></p>
+    </div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>Worm Hunt</h1>
+      <p class="sub">Eat gems. Cut off other worms.</p>
+      <button id="soloBtn" class="primary">Play solo</button>
+      <div class="or">or play in a room</div>
+      <input id="codeInput" type="text" maxlength="8" placeholder="Room code (empty = new room)" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button id="roomBtn">Join or create room</button>
+      <p id="menuMsg" class="msg"></p>
+    </div>
+  </div>
+
+  <div id="nameDlg" class="overlay" hidden>
+    <form class="card" id="nameForm">
+      <h2>Your name</h2>
+      <input id="nameInput" type="text" maxlength="12" placeholder="Enter a name" autocomplete="off" spellcheck="false">
+      <button type="submit" class="primary">Start</button>
+      <button type="button" id="nameCancel">Back</button>
+    </form>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

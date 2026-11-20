@@ -1,0 +1,189 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+[hidden] { display: none !important; }
+
+/* ---- HUD ---- */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+
+.pill, .panel, .card {
+  background: #fff;
+  border: 2px solid #111;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 6px 18px;
+  font-weight: 800;
+  font-size: 22px;
+  text-align: center;
+  min-width: 104px;
+  pointer-events: none;
+}
+.pill.small { font-size: 14px; padding: 4px 12px; }
+
+#quit {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #111;
+  background: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  color: #111;
+}
+
+.stats {
+  position: absolute;
+  top: calc(64px + env(safe-area-inset-top));
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.panel {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  border-radius: 14px;
+  padding: 8px 14px;
+  min-width: 150px;
+  max-width: 46vw;
+  font-weight: 700;
+  font-size: 15px;
+  pointer-events: none;
+}
+.panel .row { display: flex; gap: 10px; padding: 3px 0; }
+.panel .row .rk { width: 34px; }
+.panel .row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel .row.me { font-weight: 900; text-decoration: underline; }
+
+#hint {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+#hint b { font-size: 26px; text-transform: uppercase; }
+#hint span { font-size: 14px; font-weight: 700; text-transform: uppercase; }
+#hint.gone { opacity: 0; }
+
+#toast {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 2px solid #111;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 800;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#boost {
+  position: absolute;
+  right: 18px;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2px solid #111;
+  background: #fff;
+  color: #111;
+  font-weight: 900;
+  font-size: 14px;
+  touch-action: none;
+}
+#boost.on { background: #111; color: #fff; }
+
+/* ---- overlays ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  touch-action: auto;
+}
+
+.card {
+  width: min(380px, 100%);
+  border-radius: 16px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+.card h1 { margin: 0; font-size: 34px; }
+.card h2 { margin: 0; font-size: 26px; }
+.card .sub { margin: 0 0 6px; font-weight: 600; }
+.card .or { font-size: 13px; font-weight: 700; color: #555; margin-top: 4px; }
+
+.card button {
+  font: inherit;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid #111;
+  background: #fff;
+  color: #111;
+}
+.card button.primary { background: #111; color: #fff; }
+.card button:active { opacity: 0.8; }
+
+.card input {
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid #111;
+  text-align: center;
+  background: #fff;
+  color: #111;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.card input#codeInput { text-transform: uppercase; }
+
+.msg { min-height: 20px; margin: 0; font-size: 14px; font-weight: 700; }
+
+#resultList { margin: 0; padding: 0; list-style: none; text-align: left; }
+#resultList li { display: flex; gap: 10px; padding: 6px 0; font-weight: 700; border-bottom: 1px solid #ccc; }
+#resultList li:last-child { border-bottom: 0; }
+#resultList li.me { font-weight: 900; text-decoration: underline; }
+#resultList .rk { width: 34px; }
+#resultList .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#resultList .ko { color: #555; font-weight: 600; }
+#nextRound { margin: 0; font-weight: 700; }
