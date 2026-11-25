@@ -1,150 +1,81 @@
-import { LocalSession, openRoom } from './net.js';
+import { Game, STEP, W } from './sim.js';
 import { Renderer } from './render.js';
-import { COLORS, COLOR_NAMES, aimU } from './sim.js';
 
 const $ = (id) => document.getElementById(id);
-const canvas = $('game');
-const renderer = new Renderer(canvas);
-const ARROWS = ['↓', '→', '↑', '←'];
-
-let session = null, view = null, aim = 0.5, last = 0, hudAt = 0, hintTimer = 0;
+const renderer = new Renderer($('game'));
+const game = new Game();
+let playing = false, acc = 0, last = 0, view = null, hudAt = 0, hintTimer = 0, comboTimer = 0;
 
 const store = {
-  get(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } },
+  get(k) { try { return Number(localStorage.getItem(k)) || 0; } catch (e) { return 0; } },
+  set(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* ignore */ } },
 };
+let best = store.get('ballguys-best');
+const showBest = () => { $('menuBest').textContent = best ? 'Best score: ' + best : ''; $('best').textContent = 'Best ' + best; };
+showBest();
 
-// ---------- menu ----------
-const cleanCode = (v) => String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-const randomCode = () => { const c = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let o = ''; for (let i = 0; i < 5; i++) o += c[Math.floor(Math.random() * c.length)]; return o; };
-const menuMsg = (t) => { $('menuMsg').textContent = t || ''; };
-
-function showMenu(msg) {
-  $('menu').hidden = false; $('hud').hidden = true; $('results').hidden = true; $('nameDlg').hidden = true;
-  $('soloBtn').disabled = false; $('roomBtn').disabled = false;
-  menuMsg(msg);
-}
-
-let afterName = null;
-function askName(cb) {
-  afterName = cb;
-  $('nameInput').value = store.get('ballguys-name');
-  $('nameDlg').hidden = false;
-  setTimeout(() => $('nameInput').focus(), 50);
-}
-$('nameForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const name = $('nameInput').value.trim().slice(0, 12) || 'Player';
-  store.set('ballguys-name', name);
-  $('nameDlg').hidden = true;
-  const cb = afterName; afterName = null;
-  if (cb) cb(name);
-});
-$('nameCancel').addEventListener('click', () => { $('nameDlg').hidden = true; afterName = null; });
-$('soloBtn').addEventListener('click', () => askName((name) => enter(new LocalSession(name))));
-
-function joinCode(code) {
-  askName(async (name) => {
-    $('soloBtn').disabled = true; $('roomBtn').disabled = true;
-    menuMsg('Connecting to room ' + code + '...');
-    try { enter(await openRoom(code, name)); } catch (err) { showMenu(err && err.message ? err.message : 'Could not open the room'); }
-  });
-}
-$('roomBtn').addEventListener('click', () => joinCode(cleanCode($('codeInput').value) || randomCode()));
-$('codeInput').addEventListener('input', (e) => { e.target.value = cleanCode(e.target.value); });
-
-function enter(s) {
-  session = s; view = null; aim = 0.5;
-  $('menu').hidden = true; $('hud').hidden = false; $('results').hidden = true;
-  s.onClose = () => leave('The host left the room');
-  const chip = $('roomchip');
-  if (s.code) { chip.hidden = false; chip.textContent = 'Room ' + s.code; history.replaceState(null, '', '#room=' + s.code); }
-  else { chip.hidden = true; history.replaceState(null, '', location.pathname + location.search); }
+function start() {
+  game.reset();
+  playing = true; view = null; acc = 0;
+  $('menu').hidden = true; $('results').hidden = true; $('hud').hidden = false;
   const hint = $('hint'); hint.classList.remove('gone');
-  clearTimeout(hintTimer); hintTimer = setTimeout(() => hint.classList.add('gone'), 7000);
+  clearTimeout(hintTimer); hintTimer = setTimeout(() => hint.classList.add('gone'), 6000);
+  showBest();
 }
-function leave(msg) {
-  if (session) session.close();
-  session = null; view = null;
-  history.replaceState(null, '', location.pathname + location.search);
-  showMenu(msg);
-}
-$('quit').addEventListener('click', () => leave(''));
+function toMenu() { playing = false; view = null; $('hud').hidden = true; $('results').hidden = true; $('menu').hidden = false; showBest(); }
+$('soloBtn').onclick = start;
+$('again').onclick = start;
+$('toMenu').onclick = toMenu;
+$('quit').onclick = toMenu;
 
-// ---------- input ----------
-// Mouse: move to aim, click to drop. Touch: touch or drag to aim, lift to drop.
-function setAimFromPointer(e) {
-  if (!session) return;
-  const [x, y] = renderer.toWorld(e.clientX, e.clientY);
-  aim = aimU(view ? view.gd : 0, x, y);
-  session.setAim(aim);
+function aimFrom(e) {
+  const [x] = renderer.toWorld(e.clientX, e.clientY);
+  game.setAim(x / W);
 }
-function doDrop() { if (session && view && view.ph === 'play') session.drop(); }
-canvas.addEventListener('pointerdown', (e) => {
-  setAimFromPointer(e);
-  if (e.pointerType === 'mouse') doDrop();
-  else canvas.setPointerCapture(e.pointerId);
+const cv = $('game');
+cv.addEventListener('pointerdown', (e) => {
+  if (!playing) return;
+  aimFrom(e);
+  if (e.pointerType === 'mouse') game.drop(); else cv.setPointerCapture(e.pointerId);
 });
-canvas.addEventListener('pointermove', setAimFromPointer);
-canvas.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') { setAimFromPointer(e); doDrop(); } });
+cv.addEventListener('pointermove', (e) => { if (playing) aimFrom(e); });
+cv.addEventListener('pointerup', (e) => { if (playing && e.pointerType !== 'mouse') { aimFrom(e); game.drop(); } });
 addEventListener('keydown', (e) => {
-  if (!session || e.target.tagName === 'INPUT') return;
-  const k = e.key;
-  if (k === 'ArrowLeft' || k === 'a' || k === 'ArrowUp' || k === 'w') { aim = Math.max(0, aim - 0.04); session.setAim(aim); }
-  else if (k === 'ArrowRight' || k === 'd' || k === 'ArrowDown' || k === 's') { aim = Math.min(1, aim + 0.04); session.setAim(aim); }
-  else if (k === ' ' || k === 'Enter') { e.preventDefault(); doDrop(); }
-  else if (k === 'm' || k === 'Shift') session.magnet();
+  if (!playing) return;
+  if (e.key === 'ArrowLeft' || e.key === 'a') game.setAim(game.u - 0.04);
+  else if (e.key === 'ArrowRight' || e.key === 'd') game.setAim(game.u + 0.04);
+  else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); game.drop(); }
 });
-$('magnet').addEventListener('click', () => { if (session) session.magnet(); });
 
-// ---------- hud ----------
-const fmt = (t) => { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
-let lastPh = 'play';
-function hud(v) {
-  $('timer').textContent = fmt(v.tl);
-  const g = $('grav');
-  if (v.gn >= 0 && v.gw > 0) { g.className = 'pill warn'; g.textContent = `Shift ${ARROWS[v.gd]} → ${ARROWS[v.gn]} ${v.gw.toFixed(1)}`; }
-  else { g.className = 'pill'; g.textContent = 'Gravity ' + ARROWS[v.gd]; }
-  const sorted = v.players.slice().sort((a, b) => b.score - a.score);
-  $('chips').innerHTML = sorted.map((p) =>
-    `<div class="chip${p.idx === v.you ? ' me' : ''}"><i style="background:${COLORS[p.idx]}"></i><b>${esc(p.name)} ${p.score}</b><small>${p.balls}</small></div>`).join('');
-  const me = v.players[v.you];
-  if (me) {
-    const m = $('magnet');
-    $('magFill').style.transform = `scaleX(${me.mcd > 0 ? 1 - me.mcd / 9 : 1})`;
-    m.classList.toggle('ready', me.mcd <= 0);
-  }
-  if (v.ph === 'over') {
-    $('results').hidden = false;
-    if (lastPh !== 'over') {
-      $('resultList').innerHTML = (v.res || []).map((r, i) =>
-        `<li class="${r.idx === v.you ? 'me' : ''}"><span>${i + 1}.</span><i style="background:${COLORS[r.idx]}"></i><span>${esc(r.name)}${r.ai ? '' : ''}</span><b>${r.score}</b></li>`).join('');
-    }
-    $('nextRound').textContent = `Next round in ${Math.ceil(v.ol)}...`;
-  } else $('results').hidden = true;
-  lastPh = v.ph;
+function endGame() {
+  playing = false;
+  if (game.score > best) { best = game.score; store.set('ballguys-best', best); $('finalBest').textContent = 'New best score!'; }
+  else $('finalBest').textContent = 'Best: ' + best;
+  $('finalScore').textContent = game.score;
+  setTimeout(() => { $('results').hidden = false; $('hud').hidden = true; }, 900);
 }
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-void COLOR_NAMES;
 
-// ---------- loop ----------
 function loop(ts) {
   const dt = Math.min(0.05, (ts - last) / 1000 || 0.016);
   last = ts;
-  if (session) {
-    session.update(dt);
-    const v = session.view();
-    if (v) {
-      view = v;
-      renderer.events(v.ev || []);
-      if (ts - hudAt > 120) { hudAt = ts; hud(v); }
+  if (playing) {
+    acc += dt;
+    let n = 0;
+    while (acc >= STEP && n < 6) { game.step(STEP); acc -= STEP; n++; }
+    if (acc > STEP) acc = 0;
+    view = game.view();
+    renderer.events(view.ev);
+    for (const e of view.ev) {
+      if (e[0] === 'o') endGame();
+      if ((e[0] === 'm' && e[5] > 1) || e[0] === 'p') {
+        const c = $('combo'); c.hidden = false; c.textContent = e[0] === 'p' ? 'POP! x' + (e[5] || 1) : 'Combo x' + e[5];
+        clearTimeout(comboTimer); comboTimer = setTimeout(() => (c.hidden = true), 900);
+      }
     }
+    if (ts - hudAt > 100) { hudAt = ts; $('score').textContent = view.score; }
   }
-  renderer.frame(session ? view : null, session ? { you: view ? view.you : 0, u: aim, now: ts } : null, dt, ts);
+  renderer.frame(view, null, dt, ts);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 renderer.frame(null, null, 0, 0);
-
-const m = /room=([A-Za-z0-9]+)/.exec(location.hash);
-if (m) { $('codeInput').value = cleanCode(m[1]); }
