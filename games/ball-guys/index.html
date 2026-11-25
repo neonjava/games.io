@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Claude Ball Guys</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" hidden>
+    <div id="top">
+      <div class="row">
+        <button id="quit" aria-label="Leave game">&#x2715;</button>
+        <div id="timer" class="pill">1:40</div>
+        <div id="grav" class="pill">Gravity &#x2193;</div>
+        <div id="roomchip" class="pill small" hidden></div>
+      </div>
+      <div id="chips"></div>
+    </div>
+    <div id="toast" hidden></div>
+    <div id="bottom">
+      <div id="hint">Tap or drag to aim, lift to drop. Same colours merge. Big balls paint small ones.</div>
+      <button id="magnet"><i id="magFill"></i><span>MAGNET</span></button>
+    </div>
+  </div>
+
+  <div id="results" class="overlay" hidden>
+    <div class="card">
+      <h2>Round over</h2>
+      <ol id="resultList"></ol>
+      <p id="nextRound"></p>
+    </div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>Claude Ball Guys</h1>
+      <p class="sub">Drop your colour. Merge. Paint. Survive the gravity.</p>
+      <button id="soloBtn" class="primary">Play solo</button>
+      <div class="or">or play in a room</div>
+      <input id="codeInput" type="text" maxlength="8" placeholder="Room code (empty = new room)" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button id="roomBtn">Join or create room</button>
+      <p id="menuMsg" class="msg"></p>
+      <details class="how"><summary>How to play</summary>
+        <p>Everyone drops balls of their own colour into one jar. Two balls of the same colour and size merge into a bigger one and score points.</p>
+        <p>A big ball that hits a smaller ball of another colour paints it your colour. The gravity changes direction every few seconds. MAGNET pulls your balls together and shoves the others away.</p>
+        <p>Empty seats are filled by bots. Most points after 100 seconds wins.</p>
+      </details>
+      <a class="back" href="../../">&larr; All games</a>
+    </div>
+  </div>
+
+  <div id="nameDlg" class="overlay" hidden>
+    <form class="card" id="nameForm">
+      <h2>Your name</h2>
+      <input id="nameInput" type="text" maxlength="12" placeholder="Enter a name" autocomplete="off" spellcheck="false">
+      <button type="submit" class="primary">Start</button>
+      <button type="button" id="nameCancel">Back</button>
+    </form>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
